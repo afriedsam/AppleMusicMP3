@@ -5,10 +5,12 @@ import sys
 import warnings
 import re
 import yt_dlp
+from tqdm import tqdm  # For the progress bar
 
 
 def extract_apple_playlist(playlist_url):
-    """Extracts the songs and artists from an Apple Music playlist.
+    """
+    Extracts the songs and artists from an Apple Music playlist.
 
     Args:
         playlist_url (str): The URL of the Apple Music playlist.
@@ -19,6 +21,7 @@ def extract_apple_playlist(playlist_url):
     Raises:
         ValueError: If no script tag is found in the HTML or no JSON data is found in the script tag. This can occur if the URL is not valid or the playlist is not public.
     """
+    print("Fetching playlist data...")
     response = requests.get(playlist_url)
     soup = BeautifulSoup(response.text, "html.parser")
 
@@ -47,6 +50,7 @@ def extract_apple_playlist(playlist_url):
         songs.append(song["attributes"]["name"])
         artists.append(song["attributes"]["artistName"])
 
+    print(f"Found {len(songs)} songs in the playlist.")
     return songs, artists
 
 
@@ -66,10 +70,10 @@ def search_youtube(songs, artists):
     - If no YouTube video is found for a song by an artist, a UserWarning is raised.
     """
     youtube_urls = []
-
     base_youtube_url = "https://www.youtube.com"
 
-    for song, artist in zip(songs, artists):
+    print("\nSearching YouTube for songs...")
+    for song, artist in tqdm(zip(songs, artists), total=len(songs), desc="Searching"):
         query = f"{song} {artist} official audio"
         search_url = (
             f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
@@ -82,6 +86,7 @@ def search_youtube(songs, artists):
                 f"\033[93mFailed to fetch search results for '{song}' by '{artist}'\033[0m",
                 UserWarning,
             )
+            youtube_urls.append(None)
             continue
 
         # Extract the first "watch" URL using regex
@@ -92,9 +97,10 @@ def search_youtube(songs, artists):
             youtube_urls.append(video_url)
         else:
             warnings.warn(
-                f"\033[93mNo Youtube video found for '{song}' by '{artist}'\033[0m",
+                f"\033[93mNo YouTube video found for '{song}' by '{artist}'\033[0m",
                 UserWarning,
             )
+            youtube_urls.append(None)
 
     return youtube_urls
 
@@ -123,20 +129,30 @@ def download_youtube_audio(youtube_urls, output_path):
         ],
     }
 
-    for url in youtube_urls:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+    print("\nDownloading audio files...")
+    for url in tqdm(youtube_urls, total=len(youtube_urls), desc="Downloading"):
+        if url:  # Ensure URL is not None
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            except Exception as e:
+                warnings.warn(f"\033[93mFailed to download: {url} ({e})\033[0m")
 
 
 if __name__ == "__main__":
+    print("\nWelcome to Apple Playlist YouTube Downloader CLI")
+    print("================================================\n")
+
     if len(sys.argv) != 2:
-        raise ValueError(
-            "Please provide the URL of the Apple Music Playlist as the first argument"
-        )
+        print("Usage: python script.py <Apple Music Playlist URL>")
+        sys.exit(1)
+
     url = sys.argv[1]
 
-    songs, artists = extract_apple_playlist(url)
-
-    yt_urls = search_youtube(songs, artists)
-    
-    download_youtube_audio(yt_urls, "output")
+    try:
+        songs, artists = extract_apple_playlist(url)
+        yt_urls = search_youtube(songs, artists)
+        download_youtube_audio(yt_urls, "output")
+        print("\nAll downloads completed successfully!")
+    except Exception as e:
+        print(f"\033[91mError: {e}\033[0m")
