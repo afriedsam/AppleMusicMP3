@@ -1,7 +1,5 @@
 import unittest
 from unittest.mock import patch, MagicMock
-import requests
-import os
 import logging
 from AppleMusicMP3.main import (
     check_ffmpeg,
@@ -76,18 +74,21 @@ class TestAppleMusicYouTube(unittest.TestCase):
         # Check if the function output matches the expected output
         self.assertEqual(yt_urls, expected_urls)
 
-    @patch("yt_dlp.YoutubeDL.download")
-    @patch("os.makedirs")
-    def test_download_youtube_audio(self, mock_makedirs, mock_download):
+    @patch("yt_dlp.YoutubeDL")
+    def test_download_youtube_audio(self, mock_youtubedl):
         """Test download_youtube_audio calls yt_dlp correctly."""
-        mock_download.return_value = None
-        yt_urls = ["https://www.youtube.com/watch?v=test123"]
-        output_path = "test_output"
+        # Mock the YoutubeDL context manager
+        mock_instance = MagicMock()
+        mock_youtubedl.return_value.__enter__.return_value = mock_instance
 
-        download_youtube_audio(yt_urls, output_path)
-        mock_download.assert_called_once_with(
-            ["https://www.youtube.com/watch?v=test123"]
-        )
+        youtube_urls = ["https://www.youtube.com/watch?v=test123"]
+        output_path = "output"
+
+        # Call the function
+        download_youtube_audio(youtube_urls, output_path)
+
+        # Assert the download method was called correctly
+        mock_instance.download.assert_called_once_with(youtube_urls)
 
 
 if __name__ == "__main__":
