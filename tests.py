@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 import logging
 from AppleMusicMP3.main import (
     check_ffmpeg,
@@ -69,7 +69,7 @@ class TestAppleMusicYouTube(unittest.TestCase):
         expected_urls = ["https://www.youtube.com/watch?v=test123"]
 
         # Run the function
-        yt_urls = search_youtube(songs, artists)
+        yt_urls = search_youtube(songs, artists, max_threads=1)
 
         # Check if the function output matches the expected output
         self.assertEqual(yt_urls, expected_urls)
@@ -85,10 +85,12 @@ class TestAppleMusicYouTube(unittest.TestCase):
         output_path = "output"
 
         # Call the function
-        download_youtube_audio(youtube_urls, output_path)
+        download_youtube_audio(youtube_urls, output_path, max_threads=1)
 
         # Assert the download method was called correctly
-        mock_instance.download.assert_called_once_with(youtube_urls)
+        expected_calls = [call([url]) for url in youtube_urls]
+        self.assertEqual(mock_instance.download.call_count, len(expected_calls))
+        mock_instance.download.assert_has_calls(expected_calls)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,8 @@
 import requests
+import argparse
+import pyfiglet
 from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import sys
 import re
@@ -100,54 +103,61 @@ def extract_apple_playlist(playlist_url):
     return songs, artists
 
 
-def search_youtube(songs, artists):
+def search_youtube(songs, artists, max_threads=5):
     """
-    Searches YouTube for official audio videos of songs by given artists.
+    Searches YouTube for official audio videos of songs by given artists using parallel threads.
 
     Parameters:
     - songs (list): A list of song titles.
     - artists (list): A list of artist names.
+    - max_threads (int): Maximum number of threads to use for parallel searches. Default is 5.
 
     Returns:
     - youtube_urls (list): A list of YouTube URLs for official audio videos of the songs.
-
-    Warnings:
-    - If the search results for a song by an artist cannot be fetched, a UserWarning is raised.
-    - If no YouTube video is found for a song by an artist, a UserWarning is raised.
     """
     youtube_urls = []
-    base_youtube_url = (
-        "https://www.youtube.com"  # Base URL for constructing full YouTube video links
-    )
+    base_youtube_url = "https://www.youtube.com"
 
-    logging.info("Searching YouTube for songs...")
-    for song, artist in tqdm(zip(songs, artists), total=len(songs), desc="Searching"):
+    def search_single_song(song, artist):
+        """Helper function to search for a single song."""
         query = f"{song} {artist} official audio"
         search_url = (
             f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
         )
-
-        # Fetch the YouTube search results page
         response = requests.get(search_url)
-        if response.status_code != 200:
-            logging.warning(
-                f"Failed to fetch search results for '{song}' by '{artist}'"
-            )
-            continue
+        if response.status_code == 200:
+            match = re.search(r"\"url\":\"(/watch\?v=[^\"]+)", response.text)
+            if match:
+                video_url = base_youtube_url + match.group(1).split("\\")[0]
+                return video_url
+        logging.warning(f"No YouTube video found for '{song}' by '{artist}'")
+        return None
 
-        # Extract the first "watch" URL using regex
-        match = re.search(r"\"url\":\"(/watch\?v=[^\"]+)", response.text)
-        if match:
-            video_url = base_youtube_url + match.group(1)
-            video_url = video_url.split("\\")[0]
-            youtube_urls.append(video_url)
-        else:
-            logging.warning(f"No YouTube video found for '{song}' by '{artist}'")
+    with ThreadPoolExecutor(max_threads) as executor:
+        futures = {
+            executor.submit(search_single_song, song, artist): (song, artist)
+            for song, artist in zip(songs, artists)
+        }
+
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Searching"):
+            result = future.result()
+            if result:
+                youtube_urls.append(result)
 
     return youtube_urls
 
 
-def download_youtube_audio(youtube_urls, output_path):
+def download_single_song(url, output_path, ydl_opts):
+    """Helper function to download a single song."""
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except Exception as e:
+        logging.warning(f"Failed to download: {url} ({e})")
+    return url
+
+
+def download_youtube_audio(youtube_urls, output_dir="output", max_threads=5):
     """
     Downloads the audio from the given YouTube URLs and saves them as MP3 files in the specified output path.
 
@@ -157,16 +167,17 @@ def download_youtube_audio(youtube_urls, output_path):
     Parameters:
         youtube_urls (list): A list of YouTube URLs from which the audio will be downloaded.
         output_path (str): The directory path where the downloaded audio files will be saved.
+        max_threads (int): The maximum number of threads to use for parallel downloading. Default is 5.
 
     Returns:
         None
     """
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": output_path + "/%(title)s.%(ext)s",
+        "outtmpl": output_dir + "/%(title)s.%(ext)s",
         "quiet": True,
         "no-warnings": True,
-        "progress_hooks": [lambda _: None],  # Prevent progress hooks output
+        "progress_hooks": [lambda _: None],
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
@@ -174,40 +185,77 @@ def download_youtube_audio(youtube_urls, output_path):
                 "preferredquality": "192",
             }
         ],
-        "logger": logging.getLogger("null"),  # Null logger to mute yt-dlp logs
-        "no-progress": True,  # Remove yt_dlp progress bar
-        "postprocessor-args": ["-loglevel", "quiet"],  # Silence FFmpeg logs
+        "logger": logging.getLogger("null"),
+        "no-progress": True,
+        "postprocessor-args": ["-loglevel", "quiet"],
     }
 
-    logging.info("Downloading audio files...")
-    for url in tqdm(youtube_urls, total=len(youtube_urls), desc="Downloading"):
-        if url:
+    with ThreadPoolExecutor(max_threads) as executor:
+        futures = [
+            executor.submit(download_single_song, url, output_dir, ydl_opts)
+            for url in youtube_urls
+        ]
+        for future in tqdm(
+            as_completed(futures), total=len(futures), desc="Downloading"
+        ):
             try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
+                future.result()
             except Exception as e:
-                logging.warning(f"Failed to download: {url} ({e})")
+                logging.error(f"Error downloading file: {e}")
 
 
 def main():
+    print(pyfiglet.figlet_format("AppleMusicMP3"))
     logging.info("Welcome to Apple Playlist YouTube Downloader CLI")
     print("================================================\n")
 
-    if len(sys.argv) != 2:
-        print("\033[91mError: Missing required argument.\033[0m")
-        print("\033[93mUsage: python script.py <Apple Music Playlist URL>\033[0m")
-        print(
-            "\033[93mExample: python script.py https://music.apple.com/us/playlist/example\033[0m"
-        )
-        sys.exit(1)
+    # Argument parser setup
+    parser = argparse.ArgumentParser(
+        description="Download Apple Music playlists as audio files from YouTube."
+    )
+    parser.add_argument(
+        "playlist_url",
+        metavar="URL",
+        type=str,
+        help="Apple Music Playlist URL to process",
+    )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=5,
+        help="Number of threads to use for parallel downloads (default: 5)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="output",
+        help="Output directory for downloaded audio files (default: output)",
+    )
 
-    url = sys.argv[1]
+    args = parser.parse_args()
+    url = args.playlist_url
+    max_threads = args.threads
+    output_dir = args.output
+
+    logging.info(f"Extracting Music Using {max_threads} threads")
+    logging.info(f"Output Directory: {output_dir}\n")
 
     try:
         check_ffmpeg()
+        logging.info("Extracting playlist songs and artists...")
         songs, artists = extract_apple_playlist(url)
-        yt_urls = search_youtube(songs, artists)
-        download_youtube_audio(yt_urls, "output")
+
+        # Parallel YouTube search
+        logging.info("Searching YouTube for song URLs...")
+        yt_urls = search_youtube(songs, artists, max_threads=max_threads)
+
+        # Parallel audio download
+        os.makedirs(output_dir, exist_ok=True)
+        logging.info("Starting downloads...")
+        download_youtube_audio(yt_urls, output_dir=output_dir, max_threads=max_threads)
+
         logging.info("All downloads completed successfully!")
     except Exception as e:
         logging.error(f"Error: {e}")

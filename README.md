@@ -3,7 +3,7 @@
 ## Description
 This Python tool allows you to extract song titles and artist names from **public Apple Music playlists**, search for the corresponding audio on YouTube, and download the audio files as **MP3s** using the `yt-dlp` library.
 
-The script automates the entire process efficiently, providing clear progress visibility.
+The script automates the entire process efficiently, providing clear progress visibility with **parallelized operations** and customizable output options.
 
 > **Disclaimer:** Downloading copyrighted audio or video content from YouTube may violate its terms of service. This tool is intended for educational purposes only, and I am **not responsible for any misuse**.
 
@@ -14,7 +14,8 @@ The script automates the entire process efficiently, providing clear progress vi
 - Searches YouTube for matching audio content (e.g., "Official Audio").
 - Downloads the audio and saves it in **MP3 format**.
 - Provides a progress bar for each step of the process.
-- Includes error handling and logging for a smooth user experience.
+- **Parallelized operations** for faster YouTube searches and downloads.
+- Allows you to **customize the output directory** where MP3 files are saved.
 
 ---
 
@@ -43,16 +44,20 @@ pip install AppleMusicMP3
 Once installed, run the tool as a command-line program. Provide a valid **Apple Music Playlist URL**:
 
 ```bash
-applemusicmp3 <Apple Music Playlist URL>
+applemusicmp3 <Apple Music Playlist URL> [options]
 ```
+
+### Options:
+- `-t, --threads`: Set the number of parallel threads for faster downloads (default: `5`).
+- `-o, --output`: Specify a custom output directory for downloaded MP3 files (default: `output`).
 
 ### Example:
 ```bash
-applemusicmp3 https://music.apple.com/us/playlist/replay-2024/pl.example123
+applemusicmp3 https://music.apple.com/us/playlist/replay-2024/pl.example123 -t 8 -o my_music
 ```
 
 ### Output:
-- Audio files will be downloaded as **MP3s** into the `output` folder.
+- Audio files will be downloaded as **MP3s** into the specified output folder (`my_music` in the above example).
 - Progress will be displayed for fetching data, searching YouTube, and downloading audio files.
 
 ---
@@ -61,6 +66,7 @@ applemusicmp3 https://music.apple.com/us/playlist/replay-2024/pl.example123
 - The playlist **must be public** for the script to fetch data successfully.
 - Ensure **FFmpeg** is installed. If it is missing, the script will raise an error.
 - Audio files are downloaded in high-quality MP3 format (192 kbps).
+- Use the `-t` option to take advantage of **parallelized operations** for faster processing.
 
 ---
 
