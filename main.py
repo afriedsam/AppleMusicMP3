@@ -2,15 +2,31 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import sys
-import warnings
 import re
 import yt_dlp
 from tqdm import tqdm  # For the progress bar
+import logging  # For improved logging
+import shutil  # For checking FFmpeg installation
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+def check_ffmpeg():
+    """
+    Checks if FFmpeg is installed and accessible.
+
+    Raises:
+        EnvironmentError: If FFmpeg is not found in the system path.
+    """
+    if not shutil.which("ffmpeg"):
+        logging.error("FFmpeg is not installed or not in your system PATH. Please install FFmpeg to continue.")
+        raise EnvironmentError("FFmpeg is required but not found. Install FFmpeg and ensure it's in your system PATH.")
 
 def extract_apple_playlist(playlist_url):
     """
     Extracts the songs and artists from an Apple Music playlist.
+
+    This function assumes the playlist is publicly accessible and follows a consistent structure.
 
     Args:
         playlist_url (str): The URL of the Apple Music playlist.
@@ -21,7 +37,7 @@ def extract_apple_playlist(playlist_url):
     Raises:
         ValueError: If no script tag is found in the HTML or no JSON data is found in the script tag. This can occur if the URL is not valid or the playlist is not public.
     """
-    print("Fetching playlist data...")
+    logging.info("Fetching playlist data...")
     response = requests.get(playlist_url)
     soup = BeautifulSoup(response.text, "html.parser")
 
@@ -31,7 +47,7 @@ def extract_apple_playlist(playlist_url):
         # get the JSON string
         json_str = script_tag.get_text()
     else:
-        # Raise an error saying to make sure URL is correct/playlist is public
+        logging.error("No script tag found in the HTML. Ensure Valid/Public Playlist URL")
         raise ValueError(
             "No script tag found in the HTML. Ensure Valid/Public Playlist URL"
         )
@@ -40,6 +56,7 @@ def extract_apple_playlist(playlist_url):
         # convert the JSON string into a Python dictionary
         data = json.loads(json_str)
     else:
+        logging.error("No JSON data found. Ensure Valid/Public Playlist URL")
         raise ValueError("No JSON data found. Ensure Valid/Public Playlist URL")
     playlistJson = data[0]["data"]["seoData"]["ogSongs"]
 
@@ -50,7 +67,7 @@ def extract_apple_playlist(playlist_url):
         songs.append(song["attributes"]["name"])
         artists.append(song["attributes"]["artistName"])
 
-    print(f"Found {len(songs)} songs in the playlist.")
+    logging.info(f"Found {len(songs)} songs in the playlist.")
     return songs, artists
 
 
@@ -70,9 +87,9 @@ def search_youtube(songs, artists):
     - If no YouTube video is found for a song by an artist, a UserWarning is raised.
     """
     youtube_urls = []
-    base_youtube_url = "https://www.youtube.com"
+    base_youtube_url = "https://www.youtube.com"  # Base URL for constructing full YouTube video links
 
-    print("\nSearching YouTube for songs...")
+    logging.info("Searching YouTube for songs...")
     for song, artist in tqdm(zip(songs, artists), total=len(songs), desc="Searching"):
         query = f"{song} {artist} official audio"
         search_url = (
@@ -82,11 +99,9 @@ def search_youtube(songs, artists):
         # Fetch the YouTube search results page
         response = requests.get(search_url)
         if response.status_code != 200:
-            warnings.warn(
-                f"\033[93mFailed to fetch search results for '{song}' by '{artist}'\033[0m",
-                UserWarning,
+            logging.warning(
+                f"Failed to fetch search results for '{song}' by '{artist}'"
             )
-            youtube_urls.append(None)
             continue
 
         # Extract the first "watch" URL using regex
@@ -96,11 +111,9 @@ def search_youtube(songs, artists):
             video_url = video_url.split("\\")[0]
             youtube_urls.append(video_url)
         else:
-            warnings.warn(
-                f"\033[93mNo YouTube video found for '{song}' by '{artist}'\033[0m",
-                UserWarning,
+            logging.warning(
+                f"No YouTube video found for '{song}' by '{artist}'"
             )
-            youtube_urls.append(None)
 
     return youtube_urls
 
@@ -108,6 +121,9 @@ def search_youtube(songs, artists):
 def download_youtube_audio(youtube_urls, output_path):
     """
     Downloads the audio from the given YouTube URLs and saves them as MP3 files in the specified output path.
+
+    Note:
+        This function requires FFmpeg to be installed for audio extraction when using yt-dlp.
 
     Parameters:
         youtube_urls (list): A list of YouTube URLs from which the audio will be downloaded.
@@ -129,30 +145,33 @@ def download_youtube_audio(youtube_urls, output_path):
         ],
     }
 
-    print("\nDownloading audio files...")
+    logging.info("Downloading audio files...")
     for url in tqdm(youtube_urls, total=len(youtube_urls), desc="Downloading"):
         if url:  # Ensure URL is not None
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
             except Exception as e:
-                warnings.warn(f"\033[93mFailed to download: {url} ({e})\033[0m")
+                logging.warning(f"Failed to download: {url} ({e})")
 
 
 if __name__ == "__main__":
-    print("\nWelcome to Apple Playlist YouTube Downloader CLI")
+    logging.info("Welcome to Apple Playlist YouTube Downloader CLI")
     print("================================================\n")
 
     if len(sys.argv) != 2:
-        print("Usage: python script.py <Apple Music Playlist URL>")
+        print("\033[91mError: Missing required argument.\033[0m")
+        print("\033[93mUsage: python script.py <Apple Music Playlist URL>\033[0m")
+        print("\033[93mExample: python script.py https://music.apple.com/us/playlist/example\033[0m")
         sys.exit(1)
 
     url = sys.argv[1]
 
     try:
+        check_ffmpeg()
         songs, artists = extract_apple_playlist(url)
         yt_urls = search_youtube(songs, artists)
         download_youtube_audio(yt_urls, "output")
-        print("\nAll downloads completed successfully!")
+        logging.info("All downloads completed successfully!")
     except Exception as e:
-        print(f"\033[91mError: {e}\033[0m")
+        logging.error(f"Error: {e}")
