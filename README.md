@@ -1,9 +1,9 @@
 # Apple Music Playlist to YouTube Audio Downloader
 
 ## Description
-This Python tool allows you to extract song titles and artist names from **public Apple Music playlists**, search for the corresponding audio on YouTube, and download the audio files as **MP3s** using the `yt-dlp` library. 
+This Python tool allows you to extract song titles and artist names from **public Apple Music playlists**, search for the corresponding audio on YouTube, and download the audio files as **MP3s** using the `yt-dlp` library.
 
-The script is designed to automate this process efficiently and includes a progress bar for clear visibility into the operations.
+The script automates the entire process efficiently, providing clear progress visibility.
 
 > **Disclaimer:** Downloading copyrighted audio or video content from YouTube may violate its terms of service. This tool is intended for educational purposes only, and I am **not responsible for any misuse**.
 
@@ -21,12 +21,6 @@ The script is designed to automate this process efficiently and includes a progr
 ## Requirements
 1. **Python 3.7+**
 2. **FFmpeg**: Required for audio extraction when using `yt-dlp`.
-3. Required Python libraries:
-    - `requests`
-    - `beautifulsoup4`
-    - `tqdm`
-    - `yt-dlp`
-    - `logging`
 
 ### Install FFmpeg
 Ensure FFmpeg is installed and added to your system `PATH`.
@@ -37,29 +31,24 @@ Ensure FFmpeg is installed and added to your system `PATH`.
 ---
 
 ## Installation
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/yourusername/apple-music-youtube-downloader.git
-   cd apple-music-youtube-downloader
-   ```
+Install the tool directly from PyPI using `pip`:
 
-2. Install required libraries:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install AppleMusicMP3
+```
 
 ---
 
 ## Usage
-Run the script with a valid **Apple Music Playlist URL**:
+Once installed, run the tool as a command-line program. Provide a valid **Apple Music Playlist URL**:
 
 ```bash
-python script.py <Apple Music Playlist URL>
+applemusicmp3 <Apple Music Playlist URL>
 ```
 
 ### Example:
 ```bash
-python script.py https://music.apple.com/us/playlist/replay-2024/pl.example123
+applemusicmp3 https://music.apple.com/us/playlist/replay-2024/pl.example123
 ```
 
 ### Output:
@@ -84,16 +73,6 @@ Please ensure you have the right to download any content before proceeding.
 
 ---
 
-## Future Plans
-I plan to publish this tool on PyPI to make it easier to install and use:
-```bash
-pip install apple-music-downloader
-```
-
-If you encounter any issues or have feature requests, please open an issue on the GitHub repository.
-
----
-
 ## Contributing
 Contributions are welcome! Feel free to open issues or submit pull requests to improve the tool.
 
@@ -106,4 +85,5 @@ MIT License
 
 ## Author
 **Aidan Friedsam**  
-GitHub: [afriedsam](https://github.com/afriedsam)
+GitHub: [afriedsam](https://github.com/afriedsam)  
+PyPI: [Apple Music MP3](https://pypi.org/project/apple-music-mp3/)
