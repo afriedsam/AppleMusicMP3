@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="AppleMusicMP3",
-    version="0.1.0",
+    version="0.1.1",
     author="Aidan Friedsam",
     description="Convert Apple Music songs to MP3.",
     long_description=open("README.md").read(),
