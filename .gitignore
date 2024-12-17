@@ -1,4 +1,37 @@
-/env
-/output
-/__pycache__
-/.vscode
+# Virtual environment
+.env/
+env/
+venv/
+
+# Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution and build directories
+build/
+dist/
+*.egg-info/
+
+# Test coverage reports
+.coverage
+htmlcov/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# PyPI metadata
+MANIFEST
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.sublime-project
+*.sublime-workspace
+
+# OS-generated files
+.DS_Store
+Thumbs.db

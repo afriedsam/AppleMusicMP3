@@ -189,7 +189,7 @@ def download_youtube_audio(youtube_urls, output_path):
                 logging.warning(f"Failed to download: {url} ({e})")
 
 
-if __name__ == "__main__":
+def main():
     logging.info("Welcome to Apple Playlist YouTube Downloader CLI")
     print("================================================\n")
 
@@ -211,3 +211,7 @@ if __name__ == "__main__":
         logging.info("All downloads completed successfully!")
     except Exception as e:
         logging.error(f"Error: {e}")
+
+
+if __name__ == "__main__":
+    main()

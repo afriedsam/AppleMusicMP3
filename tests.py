@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import requests
 import os
 import logging
-from main import (
+from AppleMusicMP3.main import (
     check_ffmpeg,
     extract_apple_playlist,
     search_youtube,
@@ -13,10 +13,11 @@ from main import (
 # Disable logging during tests
 logging.disable(logging.CRITICAL)
 
+
 class TestAppleMusicYouTube(unittest.TestCase):
     def test_check_ffmpeg_installed(self):
         """Test check_ffmpeg passes when FFmpeg is installed."""
-        with patch('shutil.which', return_value='/usr/bin/ffmpeg'):
+        with patch("shutil.which", return_value="/usr/bin/ffmpeg"):
             try:
                 check_ffmpeg()
             except EnvironmentError:
@@ -24,7 +25,7 @@ class TestAppleMusicYouTube(unittest.TestCase):
 
     def test_check_ffmpeg_not_installed(self):
         """Test check_ffmpeg raises EnvironmentError when FFmpeg is missing."""
-        with patch('shutil.which', return_value=None):
+        with patch("shutil.which", return_value=None):
             with self.assertRaises(EnvironmentError):
                 check_ffmpeg()
 
@@ -32,12 +33,12 @@ class TestAppleMusicYouTube(unittest.TestCase):
     def test_extract_apple_playlist(self, mock_get):
         """Test extract_apple_playlist extracts songs and artists correctly."""
         # Mock Apple Music response
-        mock_html = '''
+        mock_html = """
         <script id="serialized-server-data">[{"data": {"seoData": {"ogSongs": [
             {"attributes": {"name": "Test Song 1", "artistName": "Artist 1"}},
             {"attributes": {"name": "Test Song 2", "artistName": "Artist 2"}}
         ]}}}]</script>
-        '''
+        """
         mock_get.return_value.text = mock_html
 
         playlist_url = "https://music.apple.com/us/playlist/example"
@@ -51,7 +52,7 @@ class TestAppleMusicYouTube(unittest.TestCase):
         """Test search_youtube extracts YouTube links correctly."""
         # Simulated YouTube search result response
         mock_get.return_value.status_code = 200
-        mock_get.return_value.text = '''
+        mock_get.return_value.text = """
         <!DOCTYPE html>
         <html>
             <body>
@@ -60,7 +61,7 @@ class TestAppleMusicYouTube(unittest.TestCase):
                 </script>
             </body>
         </html>
-        '''
+        """
 
         # Input data
         songs = ["Test Song 1"]
@@ -75,7 +76,6 @@ class TestAppleMusicYouTube(unittest.TestCase):
         # Check if the function output matches the expected output
         self.assertEqual(yt_urls, expected_urls)
 
-
     @patch("yt_dlp.YoutubeDL.download")
     @patch("os.makedirs")
     def test_download_youtube_audio(self, mock_makedirs, mock_download):
@@ -85,7 +85,10 @@ class TestAppleMusicYouTube(unittest.TestCase):
         output_path = "test_output"
 
         download_youtube_audio(yt_urls, output_path)
-        mock_download.assert_called_once_with(["https://www.youtube.com/watch?v=test123"])
+        mock_download.assert_called_once_with(
+            ["https://www.youtube.com/watch?v=test123"]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
