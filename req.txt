@@ -1,5 +1,5 @@
 requests
 beautifulsoup4
 lxml
-yt-dlp=2024.12.13
+yt-dlp
 tqdm
