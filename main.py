@@ -4,12 +4,34 @@ import json
 import sys
 import re
 import yt_dlp
-from tqdm import tqdm  # For the progress bar
-import logging  # For improved logging
-import shutil  # For checking FFmpeg installation
+from tqdm import tqdm
+import logging
+import os
+import shutil
+
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+class ColoredFormatter(logging.Formatter):
+    COLORS = {
+        "WARNING": "\033[93m",  # Yellow
+        "ERROR": "\033[91m",  # Red
+        "INFO": "\033[94m",  # Blue
+        "DEBUG": "\033[92m",  # Green
+        "RESET": "\033[0m",  # Reset
+    }
+
+    def format(self, record):
+        log_color = self.COLORS.get(record.levelname, self.COLORS["RESET"])
+        reset_color = self.COLORS["RESET"]
+        record.msg = f"{log_color}{record.msg}{reset_color}"
+        return super().format(record)
+
+
+# Configure logging
+handler = logging.StreamHandler()
+handler.setFormatter(ColoredFormatter("%(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+
 
 def check_ffmpeg():
     """
@@ -19,8 +41,13 @@ def check_ffmpeg():
         EnvironmentError: If FFmpeg is not found in the system path.
     """
     if not shutil.which("ffmpeg"):
-        logging.error("FFmpeg is not installed or not in your system PATH. Please install FFmpeg to continue.")
-        raise EnvironmentError("FFmpeg is required but not found. Install FFmpeg and ensure it's in your system PATH.")
+        logging.error(
+            "FFmpeg is not installed or not in your system PATH. Please install FFmpeg to continue."
+        )
+        raise EnvironmentError(
+            "FFmpeg is required but not found. Install FFmpeg and ensure it's in your system PATH."
+        )
+
 
 def extract_apple_playlist(playlist_url):
     """
@@ -47,7 +74,9 @@ def extract_apple_playlist(playlist_url):
         # get the JSON string
         json_str = script_tag.get_text()
     else:
-        logging.error("No script tag found in the HTML. Ensure Valid/Public Playlist URL")
+        logging.error(
+            "No script tag found in the HTML. Ensure Valid/Public Playlist URL"
+        )
         raise ValueError(
             "No script tag found in the HTML. Ensure Valid/Public Playlist URL"
         )
@@ -87,7 +116,9 @@ def search_youtube(songs, artists):
     - If no YouTube video is found for a song by an artist, a UserWarning is raised.
     """
     youtube_urls = []
-    base_youtube_url = "https://www.youtube.com"  # Base URL for constructing full YouTube video links
+    base_youtube_url = (
+        "https://www.youtube.com"  # Base URL for constructing full YouTube video links
+    )
 
     logging.info("Searching YouTube for songs...")
     for song, artist in tqdm(zip(songs, artists), total=len(songs), desc="Searching"):
@@ -111,9 +142,7 @@ def search_youtube(songs, artists):
             video_url = video_url.split("\\")[0]
             youtube_urls.append(video_url)
         else:
-            logging.warning(
-                f"No YouTube video found for '{song}' by '{artist}'"
-            )
+            logging.warning(f"No YouTube video found for '{song}' by '{artist}'")
 
     return youtube_urls
 
@@ -136,6 +165,8 @@ def download_youtube_audio(youtube_urls, output_path):
         "format": "bestaudio/best",
         "outtmpl": output_path + "/%(title)s.%(ext)s",
         "quiet": True,
+        "no-warnings": True,
+        "progress_hooks": [lambda _: None],  # Prevent progress hooks output
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
@@ -143,11 +174,14 @@ def download_youtube_audio(youtube_urls, output_path):
                 "preferredquality": "192",
             }
         ],
+        "logger": logging.getLogger("null"),  # Null logger to mute yt-dlp logs
+        "no-progress": True,  # Remove yt_dlp progress bar
+        "postprocessor-args": ["-loglevel", "quiet"],  # Silence FFmpeg logs
     }
 
     logging.info("Downloading audio files...")
     for url in tqdm(youtube_urls, total=len(youtube_urls), desc="Downloading"):
-        if url:  # Ensure URL is not None
+        if url:
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
@@ -162,7 +196,9 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("\033[91mError: Missing required argument.\033[0m")
         print("\033[93mUsage: python script.py <Apple Music Playlist URL>\033[0m")
-        print("\033[93mExample: python script.py https://music.apple.com/us/playlist/example\033[0m")
+        print(
+            "\033[93mExample: python script.py https://music.apple.com/us/playlist/example\033[0m"
+        )
         sys.exit(1)
 
     url = sys.argv[1]
