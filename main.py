@@ -4,6 +4,7 @@ import json
 import sys
 import warnings
 import re
+import yt_dlp
 
 
 def extract_apple_playlist(playlist_url):
@@ -19,16 +20,18 @@ def extract_apple_playlist(playlist_url):
         ValueError: If no script tag is found in the HTML or no JSON data is found in the script tag. This can occur if the URL is not valid or the playlist is not public.
     """
     response = requests.get(playlist_url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    script_tag = soup.find('script', id='serialized-server-data')
+    script_tag = soup.find("script", id="serialized-server-data")
 
     if script_tag:
         # get the JSON string
         json_str = script_tag.get_text()
     else:
         # Raise an error saying to make sure URL is correct/playlist is public
-        raise ValueError("No script tag found in the HTML. Ensure Valid/Public Playlist URL")
+        raise ValueError(
+            "No script tag found in the HTML. Ensure Valid/Public Playlist URL"
+        )
 
     if json_str:
         # convert the JSON string into a Python dictionary
@@ -43,7 +46,7 @@ def extract_apple_playlist(playlist_url):
     for song in playlistJson:
         songs.append(song["attributes"]["name"])
         artists.append(song["attributes"]["artistName"])
-    
+
     return songs, artists
 
 
@@ -61,45 +64,79 @@ def search_youtube(songs, artists):
     Warnings:
     - If the search results for a song by an artist cannot be fetched, a UserWarning is raised.
     - If no YouTube video is found for a song by an artist, a UserWarning is raised.
-    """  
+    """
     youtube_urls = []
-    
+
     base_youtube_url = "https://www.youtube.com"
-    
+
     for song, artist in zip(songs, artists):
         query = f"{song} {artist} official audio"
-        search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-        
+        search_url = (
+            f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+        )
+
         # Fetch the YouTube search results page
         response = requests.get(search_url)
         if response.status_code != 200:
             warnings.warn(
-                f"\033[93mFailed to fetch search results for '{song}' by '{artist}'\033[0m", 
-                UserWarning
+                f"\033[93mFailed to fetch search results for '{song}' by '{artist}'\033[0m",
+                UserWarning,
             )
             continue
-        
+
         # Extract the first "watch" URL using regex
-        match = re.search(r'\"url\":\"(/watch\?v=[^\"]+)', response.text)
+        match = re.search(r"\"url\":\"(/watch\?v=[^\"]+)", response.text)
         if match:
             video_url = base_youtube_url + match.group(1)
-            video_url = video_url.split('\\')[0]
+            video_url = video_url.split("\\")[0]
             youtube_urls.append(video_url)
         else:
             warnings.warn(
-                f"\033[93mNo Youtube video found for '{song}' by '{artist}'\033[0m", 
-                UserWarning
+                f"\033[93mNo Youtube video found for '{song}' by '{artist}'\033[0m",
+                UserWarning,
             )
-            
+
     return youtube_urls
+
+
+def download_youtube_audio(youtube_urls, output_path):
+    """
+    Downloads the audio from the given YouTube URLs and saves them as MP3 files in the specified output path.
+
+    Parameters:
+        youtube_urls (list): A list of YouTube URLs from which the audio will be downloaded.
+        output_path (str): The directory path where the downloaded audio files will be saved.
+
+    Returns:
+        None
+    """
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": output_path + "/%(title)s.%(ext)s",
+        "quiet": True,
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }
+        ],
+    }
+
+    for url in youtube_urls:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        raise ValueError("Please provide the URL of the Apple Music Playlist as the first argument")
+        raise ValueError(
+            "Please provide the URL of the Apple Music Playlist as the first argument"
+        )
     url = sys.argv[1]
-    
+
     songs, artists = extract_apple_playlist(url)
-    
+
     yt_urls = search_youtube(songs, artists)
-    print(yt_urls)
+    
+    download_youtube_audio(yt_urls, "output")
